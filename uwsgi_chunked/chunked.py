@@ -16,6 +16,7 @@ def _read_chunked(environ):
     input = BytesIO()
     while True:
         chunk = uwsgi.chunked_read()
+        LOGGER.debug('Read chunk: %s', chunk)
         if chunk == b'':
             break
         input.write(chunk)
