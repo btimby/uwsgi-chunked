@@ -23,7 +23,6 @@ class Chunked:
             input = BytesIO()
             while True:
                 chunk = uwsgi.chunked_read()
-                print('read:', chunk)
                 if chunk == b'':
                     break
                 input.write(chunk)
