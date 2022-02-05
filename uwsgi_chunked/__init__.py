@@ -30,16 +30,16 @@ class ChunkedStream:
 
 
 class Chunked:
-    def __init__(self, app, content_length=True):
+    def __init__(self, app, stream=False):
         self.app = app
-        self.content_length = content_length
+        self.stream = stream
 
     def __call__(self, environ, start_response):
         if environ.get('HTTP_TRANSFER_ENCODING', '').lower() == 'chunked':
             if uwsgi is None:
                 raise RuntimeError('Not running under uwsgi, cannot support '
                                    'chunked encoding')
-            if self.content_length:
+            if not self.stream:
                 _read_chunked(environ)
 
             else:

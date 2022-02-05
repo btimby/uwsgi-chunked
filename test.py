@@ -12,16 +12,14 @@ def _encode_chunked(s):
 
 
 class UWSGITestCase(TestCase):
+    PATH = '/buffer'
+
     def setUp(self):
         urlp = urlparse(TEST_URL)
         self.client = client.HTTPConnection(urlp.hostname, urlp.port)
 
     def tearDown(self):
         self.client.close()
-
-
-class ClenTestCase(UWSGITestCase):
-    PATH = '/clen'
 
     def test_get(self):
         self.client.request('GET', self.PATH)
@@ -52,5 +50,5 @@ class ClenTestCase(UWSGITestCase):
         self.assertEqual(b'Hello friend!\n', r.read())
 
 
-class StreamTestCase(ClenTestCase):
+class StreamTestCase(UWSGITestCase):
     PATH = '/stream'
