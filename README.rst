@@ -3,9 +3,12 @@ uwsgi-chunked
 
 WSGI application wrapper that handles ``Transfer-Encoding: chunked``
 
-This library provides a simple wrapper for a wsgi application that uses the
+This library provides a simple wrapper for a WSGI application that uses the
 `uwsgi low-level api <https://uwsgi-docs.readthedocs.io/en/latest/Chunked.html>`_
 for reading requests that use ``Transfer-Encoding: chunked``.
+
+It will read the entire request into memory, so if you expect large requests
+(like uploads), you should offload these to a proxy such as nginx.
 
 Installation
 ------------
@@ -16,6 +19,8 @@ Installation
 
 Usage
 -----
+
+When you run ``uwsgi``, pass the argument: ``--http-chunked-input``.
 
 Usage with Django is as follows, you should edit the ``wsgi.py`` file
 provided in the default Django application.
@@ -45,4 +50,5 @@ The ``Chunked`` object looks for a request with
 ``Transfer-Encoding: chunked`` and reads the request data using the low-level
 uwsgi api. It then places the request data into a ``BytesIO`` instance in
 ``environ['wsgi.input']`` where it is expected. It also sets the
-``Content-Length`` header as wsgi requires.
+``Content-Length`` header as WSGI requires. The entire request is read into
+memory in order to calculate the ``Content-Length`` header.
