@@ -12,23 +12,37 @@ except ImportError:
     LOGGER.warn('Not running under uwsgi')
 
 
+def _read_chunked(environ):
+    input = BytesIO()
+    while True:
+        chunk = uwsgi.chunked_read()
+        if chunk == b'':
+            break
+        input.write(chunk)
+    environ['CONTENT_LENGTH'] = str(input.tell())
+    environ['wsgi.input'] = input
+    input.seek(0)
+
+
+class ChunkedStream:
+    def read(self, size=None):
+        return uwsgi.chunked_read()
+
+
 class Chunked:
-    def __init__(self, app):
+    def __init__(self, app, content_length=True):
         self.app = app
+        self.content_length = content_length
 
     def __call__(self, environ, start_response):
         if environ.get('HTTP_TRANSFER_ENCODING', '').lower() == 'chunked':
             if uwsgi is None:
                 raise RuntimeError('Not running under uwsgi, cannot support '
                                    'chunked encoding')
-            input = BytesIO()
-            while True:
-                chunk = uwsgi.chunked_read()
-                if chunk == b'':
-                    break
-                input.write(chunk)
-            environ['CONTENT_LENGTH'] = str(input.tell())
-            environ['wsgi.input'] = input
-            input.seek(0)
+            if self.content_length:
+                _read_chunked(environ)
+
+            else:
+                environ['wsgi.input'] = ChunkedStream()
 
         return self.app(environ, start_response)

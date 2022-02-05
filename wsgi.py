@@ -11,4 +11,5 @@ def hello_world(environ, start_response):
     return[b'Hello %b!\n' % whom]
 
 
-application = Chunked(hello_world)
+clen = Chunked(hello_world)
+stream = Chunked(hello_world, content_length=False)
