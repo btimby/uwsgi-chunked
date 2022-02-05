@@ -19,7 +19,8 @@ class Chunked:
     def __call__(self, environ, start_response):
         if environ.get('HTTP_TRANSFER_ENCODING', '').lower() == 'chunked':
             if uwsgi is None:
-                raise RuntimeError('Not running under uwsgi, cannot support chunked encoding')
+                raise RuntimeError('Not running under uwsgi, cannot support '
+                                   'chunked encoding')
             input = BytesIO()
             while True:
                 chunk = uwsgi.chunked_read()
