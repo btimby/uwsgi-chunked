@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  wsgi:
+    image: wsgi
+    build:
+      dockerfile: ./docker/Dockerfile
+      context: ./
+    volumes:
+      - ./docker/entrypoint.sh:/entrypoint.sh:ro
+      - ./wsgi.py:/wsgi.py:ro
+      - ./uwsgi_chunked/__init__.py:/uwsgi_chunked.py:ro
+    ports:
+      - 8000:8000
