@@ -7,8 +7,9 @@ This library provides a simple wrapper for a WSGI application that uses the
 `uwsgi low-level api <https://uwsgi-docs.readthedocs.io/en/latest/Chunked.html>`_
 for reading requests that use ``Transfer-Encoding: chunked``.
 
-It will read the entire request into memory, so if you expect large requests
-(like uploads), you should offload these to a proxy such as nginx.
+In normal operation, it will read the entire request into memory, so if you
+expect large requests (like uploads), you should offload these to a proxy such
+as nginx, or if your application allows it, use stream mode.
 
 Installation
 ------------
@@ -43,6 +44,14 @@ provided in the default Django application.
 
     application = Chunked(get_wsgi_application())
 
+To use stream mode, pass the optional keyword argument ``stream=True`` to
+``Chunked``. Be careful with stream mode as it does not set the
+``Content-Length`` header as required by the WSGI spec.
+
+.. code-block:: python
+
+    application = Chunked(get_wsgi_application(), stream=True)
+
 How it works
 ------------
 
@@ -50,5 +59,6 @@ The ``Chunked`` object looks for a request with
 ``Transfer-Encoding: chunked`` and reads the request data using the low-level
 uwsgi api. It then places the request data into a ``BytesIO`` instance in
 ``environ['wsgi.input']`` where it is expected. It also sets the
-``Content-Length`` header as WSGI requires. The entire request is read into
-memory in order to calculate the ``Content-Length`` header.
+``Content-Length`` header as WSGI requires. When not using stream mode, the
+entire request is read into memory in order to calculate the
+``Content-Length`` header.
