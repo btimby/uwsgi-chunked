@@ -26,20 +26,21 @@ def _encode_chunked(s):
 
 class UWSGINoneTestCase(TestCase):
     def test_none(self):
-        # Ensure that import failure is handled.
+        "Ensure that import failure is handled."
         self.assertIsNone(chunked.uwsgi)
 
     def test_raises(self):
+        "Ensure chunking fails outside of uwsgi."
         # Create a fake wsgi application.
         app = chunked.Chunked(lambda x, y: None)
-        # No Transfer-Encoding, header, OK.
-        app({}, None)
         with self.assertRaises(RuntimeError):
             # Transfer-Encoding header requires uwsgi module.
-            app({'HTTP_TRANSFER_ENCODING': 'chunked'}, None)
+            list(app({'HTTP_TRANSFER_ENCODING': 'chunked'}, None))
 
 
 class UWSGITestCase(TestCase):
+    "Test buffering mode."
+
     PATH = '/buffer'
 
     def setUp(self):
@@ -50,12 +51,14 @@ class UWSGITestCase(TestCase):
         self.client.close()
 
     def test_get(self):
+        "Normal GET request."
         self.client.request('GET', self.PATH)
         r = self.client.getresponse()
         self.assertEqual(200, r.status)
         self.assertEqual(b'Hello stranger!\n', r.read())
 
     def test_urlencoded(self):
+        "Normal POST request."
         params = urlencode({ 'whom': 'friend' })
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -67,6 +70,7 @@ class UWSGITestCase(TestCase):
         self.assertEqual(b'Hello friend!\n', r.read())
 
     def test_chunked(self):
+        "Chunked POST request."
         params = _encode_chunked(urlencode({ 'whom': 'friend' }))
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -79,4 +83,6 @@ class UWSGITestCase(TestCase):
 
 
 class StreamTestCase(UWSGITestCase):
+    "Test stream mode."
+
     PATH = '/stream'

@@ -13,6 +13,7 @@ except ImportError:
 
 
 def _read_chunked(environ):
+    "Read entire request and populate wsgi.input and Content-Length header."
     input = BytesIO()
     while True:
         chunk = uwsgi.chunked_read()
@@ -26,11 +27,16 @@ def _read_chunked(environ):
 
 
 class _ChunkedStream:
+    "Chunked input stream."
+
     def read(self, size=None):
+        # TODO: should probably do some buffering to support the size param.
         return uwsgi.chunked_read()
 
 
 class Chunked:
+    "WSGI application wrapper."
+
     def __init__(self, app, stream=False):
         self.app = app
         self.stream = stream
@@ -46,4 +52,4 @@ class Chunked:
             else:
                 environ['wsgi.input'] = _ChunkedStream()
 
-        return self.app(environ, start_response)
+        yield from self.app(environ, start_response)
