@@ -62,3 +62,12 @@ uwsgi api. It then places the request data into a ``BytesIO`` instance in
 ``Content-Length`` header as WSGI requires. When not using stream mode, the
 entire request is read into memory in order to calculate the
 ``Content-Length`` header.
+
+Development
+-----------
+
+You can run the demo application in docker with ``make run``. The demo
+application uses auto reloading to detect changes to the python modules.
+
+Tests require the demo application (running under ``uwsgi``) to function.
+Therefore, do ``make run`` in one terminal and ``make test`` in another.
