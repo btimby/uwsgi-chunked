@@ -52,4 +52,4 @@ class Chunked:
             else:
                 environ['wsgi.input'] = _ChunkedStream()
 
-        yield from self.app(environ, start_response)
+        return self.app(environ, start_response)
