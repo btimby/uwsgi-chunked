@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install -U pip~=21.0
-          pipenv install --dev --skip-lock
+          make deps
           pip install --timeout=30 -q -e .
 
       - name: Run tests
