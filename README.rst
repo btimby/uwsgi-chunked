@@ -1,3 +1,12 @@
+.. image:: https://coveralls.io/repos/github/btimby/uwsgi-chunked/badge.svg?branch=master
+    :target: https://coveralls.io/github/btimby/uwsgi-chunked?branch=master
+
+.. image:: https://github.com/btimby/uwsgi-chunked/actions/workflows/ci.yml/badge.svg
+    :target: https://github.com/btimby/uwsgi-chunked/actions
+
+.. image:: https://badge.fury.io/py/uwsgi-chunked.svg
+    :target: https://badge.fury.io/py/uwsgi-chunked
+
 uwsgi-chunked
 =============
 
