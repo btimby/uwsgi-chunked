@@ -17,8 +17,13 @@ UWSGI_CMD = [
 ]
 
 
-def _wait_for_port(port, host='127.0.0.1'):
+def _wait_for_port(port, host='127.0.0.1', timeout=2.0):
+    "Try to open a connection until it succeeds"
+    start = time.time()
     while True:
+        if time.time() - start > timeout:
+            raise TimeoutError()
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.connect((host, port))
@@ -76,7 +81,7 @@ class UWSGITestCase(TestCase):
     def setUpClass():
         UWSGITestCase._proc = subprocess.Popen(
             UWSGI_CMD, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        _wait_for_port(TEST_PORT, host='127.0.0.1')
+        _wait_for_port(TEST_PORT)
 
     def tearDownClass():
         UWSGITestCase._proc.kill()
