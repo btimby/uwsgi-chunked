@@ -12,7 +12,7 @@ package_name = 'uwsgi-chunked'
 readme = os.path.join(os.path.dirname(__file__), 'README.rst')
 with open(readme) as readme_file:
     long_description = readme_file.read()
-version_msg = '# Do not edit. See setup.py.{nl}__version__ = "{ver}"{nl}'
+version_msg = '"Do not edit. See setup.py."{nl}__version__ = "{ver}"{nl}{nl}'
 version_py = pathjoin(
     dirname(__file__), package_name.replace('-', '_'), 'version.py')
 

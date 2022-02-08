@@ -2,7 +2,7 @@ DOCKER_COMPOSE=docker-compose
 
 
 .venv: Pipfile
-	PIPENV_VENV_IN_PROJECT=1 pipenv install
+	PIPENV_VENV_IN_PROJECT=1 pipenv install --dev
 	touch .venv
 
 
@@ -18,8 +18,14 @@ run:
 
 
 test: deps
-	pipenv run python3 -m unittest test.py
+	pipenv run coverage run -m unittest test.py
 
+
+lint: deps
+	pipenv run pylint uwsgi_chunked
 
 curl:
 	echo -n 'whom=friend' | curl -T- http://localhost:8000/stream
+
+
+ci: test lint

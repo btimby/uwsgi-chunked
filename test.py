@@ -4,7 +4,7 @@ import time
 import socket
 from http import client
 from urllib.parse import urlparse, urlencode
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from uwsgi_chunked import chunked
 
@@ -66,6 +66,37 @@ class UWSGINoneTestCase(TestCase):
             list(app({'HTTP_TRANSFER_ENCODING': 'chunked'}, None))
 
 
+class ChunkedStreamTestCase(TestCase):
+    def test_read_bufferred(self):
+        "Ensure read returns the number of bytes asked for."
+        mock_read = mock.MagicMock()
+        mock_read.side_effect = [
+            b'AAAAAAAAAABBBBB',
+            b'BBBBBCCCCCCCCCC',
+            TimeoutError(),
+            b'DDDDDDDDDDEEEEE',
+            b'EEEEEFFFFFFFFFF',
+            b'',
+        ]
+        stream = chunked._ChunkedStream(reader=mock_read)
+        self.assertEqual(b'A' * 10, stream.read(10))
+        self.assertEqual(b'B' * 10, stream.read(10))
+        self.assertEqual(b'C' * 10, stream.read(10))
+        self.assertEqual(b'D' * 10, stream.read(10))
+        self.assertEqual(b'E' * 10, stream.read(10))
+        self.assertEqual(b'F' * 10, stream.read(10))
+        self.assertIsNone(stream.read())
+
+    def test_read_short(self):
+        mock_read = mock.MagicMock()
+        mock_read.side_effect = [
+            b'AAAAAAAAAA',
+            b'',
+        ]
+        stream = chunked._ChunkedStream(reader=mock_read)
+        self.assertEqual(b'A' * 10, stream.read(100))
+
+
 class UWSGITestCase(TestCase):
     "Test buffering mode."
 
@@ -78,14 +109,16 @@ class UWSGITestCase(TestCase):
     def tearDown(self):
         self.client.close()
 
-    def setUpClass():
-        UWSGITestCase._proc = subprocess.Popen(
+    @classmethod
+    def setUpClass(cls):
+        cls._proc = subprocess.Popen(
             UWSGI_CMD, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         _wait_for_port(TEST_PORT)
 
-    def tearDownClass():
-        UWSGITestCase._proc.kill()
-        UWSGITestCase._proc.wait()
+    @classmethod
+    def tearDownClass(cls):
+        cls._proc.kill()
+        cls._proc.wait()
 
     def test_get(self):
         "Normal GET request."

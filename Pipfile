@@ -4,9 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-uwsgi = "*"
 
 [dev-packages]
+uwsgi = "*"
+coveralls = "*"
+coverage = "*"
+pylint = "*"
+mock = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3"
