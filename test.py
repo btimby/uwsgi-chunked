@@ -1,4 +1,7 @@
 import os
+import subprocess
+import time
+import socket
 from http import client
 from urllib.parse import urlparse, urlencode
 from unittest import TestCase
@@ -6,7 +9,27 @@ from unittest import TestCase
 from uwsgi_chunked import chunked
 
 
-TEST_URL = os.getenv('TEST_URL', 'http://localhost:8000/')
+TEST_PORT = int(os.getenv('TEST_PORT', '8000'))
+TEST_URL = os.getenv('TEST_URL', f'http://localhost:{TEST_PORT}/')
+UWSGI_CMD = [
+    'uwsgi', '--mount=/buffer=wsgi:buffer', '--mount=/stream=wsgi:stream',
+    f'--http-socket=127.0.0.1:{TEST_PORT}', '--http-chunked-input',
+]
+
+
+def _wait_for_port(port, host='127.0.0.1'):
+    while True:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.connect((host, port))
+            return
+
+        except:
+            time.sleep(0.01)
+            continue
+
+        finally:
+            s.close()
 
 
 def _encode_chunk(s):
@@ -49,6 +72,15 @@ class UWSGITestCase(TestCase):
 
     def tearDown(self):
         self.client.close()
+
+    def setUpClass():
+        UWSGITestCase._proc = subprocess.Popen(
+            UWSGI_CMD, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _wait_for_port(TEST_PORT, host='127.0.0.1')
+
+    def tearDownClass():
+        UWSGITestCase._proc.kill()
+        UWSGITestCase._proc.wait()
 
     def test_get(self):
         "Normal GET request."

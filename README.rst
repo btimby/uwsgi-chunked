@@ -66,8 +66,15 @@ entire request is read into memory in order to calculate the
 Development
 -----------
 
+Issues and PRs welcome. This is a simple module that has no dependencies
+except that it only works when running under ``uwsgi``. When running under
+``uwsgi`` a special module is available that provides the necessary api.
+
 You can run the demo application in docker with ``make run``. The demo
 application uses auto reloading to detect changes to the python modules.
 
 Tests require the demo application (running under ``uwsgi``) to function.
 Therefore, do ``make run`` in one terminal and ``make test`` in another.
+
+You can also test using curl with the ``make curl`` target (while the demo app
+is running).
