@@ -78,6 +78,7 @@ class UWSGINoneTestCase(TestCase):
 
 
 class ChunkedStreamTestCase(TestCase):
+    "Test stream class using mocks."
     def test_read_bufferred(self):
         "Ensure read returns the number of bytes asked for."
         mock_read = mock.MagicMock()
@@ -98,6 +99,7 @@ class ChunkedStreamTestCase(TestCase):
         self.assertEqual(b'', stream.read())
 
     def test_read_short(self):
+        "Test reading more than the buffer provides."
         mock_read = mock.MagicMock()
         mock_read.side_effect = [
             b'AAAAAAAAAA',
@@ -108,6 +110,7 @@ class ChunkedStreamTestCase(TestCase):
         self.assertEqual(b'', stream.read())
 
     def test_read_all(self):
+        "Test reading with None as size."
         mock_read = mock.MagicMock()
         mock_read.side_effect = [
             b'AAAAAAAAAA',
