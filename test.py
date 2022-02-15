@@ -9,12 +9,23 @@ from unittest import TestCase, mock
 from uwsgi_chunked import chunked
 
 
-TEST_PORT = int(os.getenv('TEST_PORT', '8000'))
-TEST_URL = os.getenv('TEST_URL', f'http://localhost:{TEST_PORT}/')
+TEST_OUTPUT = os.getenv('TEST_OUTPUT', '').lower() == 'on'
 UWSGI_CMD = [
-    'uwsgi', '--mount=/buffer=wsgi:buffer', '--mount=/stream=wsgi:stream',
-    f'--http-socket=127.0.0.1:{TEST_PORT}', '--http-chunked-input',
+    'uwsgi',
+    '--mount=/=docker.app.wsgi:app',
+     '--http-chunked-input',
 ]
+
+
+def _free_port():
+    "Find a free port by binding to 0 and checking what the kernel assigns."
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(('127.0.0.1', 0))
+    try:
+        return s.getsockname()[1]
+
+    finally:
+        s.close()
 
 
 def _wait_for_port(port, host='127.0.0.1', timeout=2.0):
@@ -29,7 +40,7 @@ def _wait_for_port(port, host='127.0.0.1', timeout=2.0):
             s.connect((host, port))
             return
 
-        except:
+        except socket.error:
             time.sleep(0.01)
             continue
 
@@ -39,12 +50,12 @@ def _wait_for_port(port, host='127.0.0.1', timeout=2.0):
 
 def _encode_chunk(s):
     "Encode a single chunk."
-    return '\r\n'.join([hex(len(s))[2:], s])
+    return b'\r\n'.join([hex(len(s))[2:].encode(), s.encode()])
 
 
 def _encode_chunked(s):
     "Ensure string spans multiple chunks."
-    return '\r\n'.join([
+    return b'\r\n'.join([
         _encode_chunk(s[0]),
         _encode_chunk(s[1:3]),
         _encode_chunk(s[3:]),
@@ -73,7 +84,6 @@ class ChunkedStreamTestCase(TestCase):
         mock_read.side_effect = [
             b'AAAAAAAAAABBBBB',
             b'BBBBBCCCCCCCCCC',
-            TimeoutError(),
             b'DDDDDDDDDDEEEEE',
             b'EEEEEFFFFFFFFFF',
             b'',
@@ -85,7 +95,7 @@ class ChunkedStreamTestCase(TestCase):
         self.assertEqual(b'D' * 10, stream.read(10))
         self.assertEqual(b'E' * 10, stream.read(10))
         self.assertEqual(b'F' * 10, stream.read(10))
-        self.assertIsNone(stream.read())
+        self.assertEqual(b'', stream.read())
 
     def test_read_short(self):
         mock_read = mock.MagicMock()
@@ -95,15 +105,26 @@ class ChunkedStreamTestCase(TestCase):
         ]
         stream = chunked._ChunkedStream(reader=mock_read)
         self.assertEqual(b'A' * 10, stream.read(100))
+        self.assertEqual(b'', stream.read())
+
+    def test_read_all(self):
+        mock_read = mock.MagicMock()
+        mock_read.side_effect = [
+            b'AAAAAAAAAA',
+            b'AAAAAAAAAA',
+            b''
+        ]
+        stream = chunked._ChunkedStream(reader=mock_read)
+        self.assertEqual(b'A' * 20, stream.read())
 
 
 class UWSGITestCase(TestCase):
     "Test buffering mode."
 
-    PATH = '/buffer'
+    ENV = {'STREAM': 'off'}
 
     def setUp(self):
-        urlp = urlparse(TEST_URL)
+        urlp = urlparse(self.test_url)
         self.client = client.HTTPConnection(urlp.hostname, urlp.port)
 
     def tearDown(self):
@@ -111,9 +132,21 @@ class UWSGITestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls._proc = subprocess.Popen(
-            UWSGI_CMD, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        _wait_for_port(TEST_PORT)
+        env = os.environ.copy()
+        env.update(cls.ENV)
+        kwargs = {
+            'env': env,
+        }
+        if not TEST_OUTPUT:
+            kwargs.update({
+                'stdout': subprocess.DEVNULL,
+                'stderr': subprocess.DEVNULL,
+            })
+        free_port = _free_port()
+        cmd = UWSGI_CMD + [f'--http-socket=127.0.0.1:{free_port}']
+        cls._proc = subprocess.Popen(cmd, **kwargs)
+        _wait_for_port(free_port)
+        cls.test_url = f'http://localhost:{free_port}/'
 
     @classmethod
     def tearDownClass(cls):
@@ -122,7 +155,7 @@ class UWSGITestCase(TestCase):
 
     def test_get(self):
         "Normal GET request."
-        self.client.request('GET', self.PATH)
+        self.client.request('GET', '/')
         r = self.client.getresponse()
         self.assertEqual(200, r.status)
         self.assertEqual(b'Hello stranger!\n', r.read())
@@ -134,7 +167,7 @@ class UWSGITestCase(TestCase):
             'Content-Type': 'application/x-www-form-urlencoded',
             'Content-Length': str(len(params))
         }
-        self.client.request('POST', self.PATH, params, headers)
+        self.client.request('POST', '/', params, headers)
         r = self.client.getresponse()
         self.assertEqual(200, r.status)
         self.assertEqual(b'Hello friend!\n', r.read())
@@ -146,7 +179,25 @@ class UWSGITestCase(TestCase):
             'Content-Type': 'application/x-www-form-urlencoded',
             'Transfer-Encoding': 'chunked',
         }
-        self.client.request('POST', self.PATH, params, headers)
+        self.client.request('POST', '/', params, headers)
+        r = self.client.getresponse()
+        self.assertEqual(200, r.status)
+        self.assertEqual(b'Hello friend!\n', r.read())
+
+    def test_slow(self):
+        "Test slow sending."
+        params = _encode_chunked(urlencode({ 'whom': 'friend' }))
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Transfer-Encoding': 'chunked',
+        }
+
+        def body_gen():
+            for chunk in params.split(b'\r\n'):
+                yield chunk + b'\r\n'
+                time.sleep(1.0)
+
+        self.client.request('POST', '/', body_gen(), headers)
         r = self.client.getresponse()
         self.assertEqual(200, r.status)
         self.assertEqual(b'Hello friend!\n', r.read())
@@ -155,4 +206,4 @@ class UWSGITestCase(TestCase):
 class StreamTestCase(UWSGITestCase):
     "Test stream mode."
 
-    PATH = '/stream'
+    ENV = {'STREAM': 'on'}

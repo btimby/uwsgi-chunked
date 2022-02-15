@@ -8,7 +8,9 @@ services:
       context: ./
     volumes:
       - ./docker/entrypoint.sh:/entrypoint.sh:ro
-      - ./wsgi.py:/wsgi.py:ro
-      - ./uwsgi_chunked/chunked.py:/uwsgi_chunked.py:ro
+#      - ./docker/app:/app:ro
+      - ./uwsgi_chunked/chunked.py:/app/uwsgi_chunked.py:ro
     ports:
       - 8000:8000
+    environment:
+      - STREAM=${STREAM}

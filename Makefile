@@ -24,8 +24,13 @@ test: deps
 lint: deps
 	pipenv run pylint uwsgi_chunked
 
-curl:
+
+stream:
 	echo -n 'whom=friend' | curl -T- http://localhost:8000/stream
+
+
+buffer:
+	echo -n 'whom=friend' | curl -T- http://localhost:8000/buffer
 
 
 ci: test lint

@@ -1,5 +1,6 @@
 "Wrapper for WSGI application"
 
+import time
 import logging
 from io import BytesIO
 
@@ -21,7 +22,7 @@ class _ChunkedStream:
     def __init__(self, reader=None):
         self._buffer = b''
         self._eof = False
-        self._reader = reader or uwsgi.chunked_read
+        self._reader = reader or uwsgi.chunked_read_nb
 
     def _read(self):
         "Read whatever is available."
@@ -29,15 +30,20 @@ class _ChunkedStream:
         if self._eof:
             return b''
 
-        try:
+        while True:
             chunk = self._reader()
             if chunk == b'':
+                LOGGER.debug('_read(): EOF')
                 self._eof = True
-            return chunk
-
-        # pylint: disable=W0703
-        except Exception:
-            return b''
+                return b''
+            elif chunk is None:
+                LOGGER.debug('_read(): None, try again.')
+                # No data available.
+                time.sleep(0.01)
+                continue
+            else:
+                LOGGER.debug('_read(): %i bytes', len(chunk))
+                return chunk
 
     def read(self, size=None):
         "Read chunked input"
@@ -45,35 +51,23 @@ class _ChunkedStream:
             # Read until we satisfy request or we run out of data. Buffer
             # anything left over.
             chunk, self._buffer = self._buffer + self._read(), b''
-            if not size or size == len(chunk):
-                chunk = chunk or None
-            elif size < len(chunk):
+            if size is None and not self._eof:
+                self._buffer = chunk
+                continue
+            if size and size < len(chunk):
                 self._buffer = chunk[size:]
                 chunk = chunk[:size]
-            elif size > len(chunk) and not self._eof:
+            elif size and size > len(chunk) and not self._eof:
                 self._buffer = chunk
                 continue
             return chunk
-
-
-def _read_all(environ, chunked):
-    "Read entire request and populate wsgi.input and Content-Length header."
-    wsgi_input = BytesIO()
-    while True:
-        chunk = chunked.read(READ_SIZE)
-        LOGGER.debug('Read chunk: %s', chunk)
-        if chunk == b'':
-            break
-        wsgi_input.write(chunk)
-    environ['CONTENT_LENGTH'] = str(wsgi_input.tell())
-    environ['wsgi.input'] = wsgi_input
-    wsgi_input.seek(0)
 
 
 class Chunked:
     "WSGI application wrapper."
 
     def __init__(self, app, stream=False):
+        LOGGER.debug('__init__(): self=%s, stream=%s', self, stream)
         self.app = app
         self.stream = stream
 
@@ -82,9 +76,17 @@ class Chunked:
             if uwsgi is None:
                 raise RuntimeError('Not running under uwsgi, cannot support '
                                    'chunked encoding')
+            LOGGER.debug('Handling chunked request: self=%s, stream=%s', self, self.stream)
             chunked = _ChunkedStream()
+
             if not self.stream:
-                _read_all(environ, chunked)
+                wsgi_input = BytesIO(chunked.read())
+                length = wsgi_input.tell()
+                LOGGER.debug(
+                    'Setting wsgi.input and Content-Length: %i', length)
+                environ['wsgi.input'] = wsgi_input
+                environ['CONTENT_LENGTH'] = wsgi_input.tell()
+                wsgi_input.seek(0)
 
             else:
                 environ['wsgi.input'] = chunked
