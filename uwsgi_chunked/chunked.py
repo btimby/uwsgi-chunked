@@ -80,13 +80,11 @@ class Chunked:
             chunked = _ChunkedStream()
 
             if not self.stream:
-                wsgi_input = BytesIO(chunked.read())
+                wsgi_input = environ['wsgi.input'] = BytesIO(chunked.read())
                 length = wsgi_input.getbuffer().nbytes
                 LOGGER.debug(
                     'Setting wsgi.input and Content-Length: %i', length)
-                environ['wsgi.input'] = wsgi_input
                 environ['CONTENT_LENGTH'] = length
-                wsgi_input.seek(0)
 
             else:
                 environ['wsgi.input'] = chunked
